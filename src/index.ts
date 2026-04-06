@@ -4,7 +4,7 @@ import * as github from '@actions/github'
 import { hasPreview, isViewFile } from './services/previewChecker'
 import { buildMarkdownTable } from './utils/markdown'
 import { getPRFiles, getFileContent, commentOnPR } from './github/pullRequest'
-import { FileInfo } from "./types/file"
+import { FileInfo } from './types/file'
 
 async function run() {
   try {
@@ -24,23 +24,33 @@ async function run() {
     const filesResponse = await getPRFiles(octokit, owner, repo, prNumber)
 
     const results = await Promise.all(
-      filesResponse.data.map(async (file: FileInfo) => {
-        const content = await getFileContent(octokit, owner, repo, file.name, ref)
-        if (!content || !isViewFile(content))  return null
+      filesResponse.data.map(async (file) => {
+        const filePath = file.filename
+
+        const content = await getFileContent(
+          octokit,
+          owner,
+          repo,
+          filePath,
+          ref
+        )
+
+        if (!content || !isViewFile(content)) return null
 
         if (!hasPreview(content)) {
-          return {
-            name: file.name.split('/').pop() || file.name,
-            path: file.name,
+          const result: FileInfo = {
+            name: filePath.split('/').pop() || filePath,
+            path: filePath,
           }
+
+          return result
         }
 
         return null
       })
     )
 
-    // Remove nulls
-    const filesWithoutPreview = results.filter(
+    const filesWithoutPreview: FileInfo[] = results.filter(
       (file): file is FileInfo => file !== null
     )
 

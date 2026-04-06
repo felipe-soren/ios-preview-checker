@@ -23642,7 +23642,7 @@ function hasPreview(content) {
   return hasNewPreview || hasOldPreview;
 }
 function isViewFile(content) {
-  content.includes("var body: some View");
+  return content.includes("var body: some View");
 }
 
 // src/utils/markdown.ts
@@ -23712,13 +23712,21 @@ async function run() {
     const filesResponse = await getPRFiles(octokit, owner, repo, prNumber);
     const results = await Promise.all(
       filesResponse.data.map(async (file) => {
-        const content = await getFileContent(octokit, owner, repo, file.name, ref);
+        const filePath = file.filename;
+        const content = await getFileContent(
+          octokit,
+          owner,
+          repo,
+          filePath,
+          ref
+        );
         if (!content || !isViewFile(content)) return null;
         if (!hasPreview(content)) {
-          return {
-            name: file.name.split("/").pop() || file.name,
-            path: file.name
+          const result = {
+            name: filePath.split("/").pop() || filePath,
+            path: filePath
           };
+          return result;
         }
         return null;
       })
