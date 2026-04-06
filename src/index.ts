@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 
-import { hasPreview } from './services/previewChecker'
+import { hasPreview, isViewFile } from './services/previewChecker'
 import { buildMarkdownTable } from './utils/markdown'
 import { getPRFiles, getFileContent, commentOnPR } from './github/pullRequest'
 import { FileInfo } from "./types/file"
@@ -25,10 +25,8 @@ async function run() {
 
     const results = await Promise.all(
       filesResponse.data.map(async (file: FileInfo) => {
-        if (!file.name.endsWith('View.swift')) return null
-
         const content = await getFileContent(octokit, owner, repo, file.name, ref)
-        if (!content) return null
+        if (!content || isViewFile(content))  return null
 
         if (!hasPreview(content)) {
           return {
@@ -43,7 +41,7 @@ async function run() {
 
     // Remove nulls
     const filesWithoutPreview = results.filter(
-      (file): file is { name: string; path: string } => file !== null
+      (file): file is FileInfo => file !== null
     )
 
     const body = buildMarkdownTable(filesWithoutPreview)

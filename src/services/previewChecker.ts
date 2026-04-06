@@ -4,3 +4,7 @@ export function hasPreview(content: string): boolean {
 
   return hasNewPreview || hasOldPreview
 }
+
+export function isViewFile(content: String): boolean {
+  content.includes('var body: some View')
+}
