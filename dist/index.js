@@ -23712,7 +23712,10 @@ async function run() {
     const filesResponse = await getPRFiles(octokit, owner, repo, prNumber);
     const results = await Promise.all(
       filesResponse.data.map(async (file) => {
+        if (file.status === "removed") return null;
         const filePath = file.filename;
+        if (!filePath.endsWith("View.swift")) return null;
+        info(`Checking file: ${filePath}`);
         const content = await getFileContent(
           octokit,
           owner,
@@ -23720,7 +23723,8 @@ async function run() {
           filePath,
           ref
         );
-        if (!content || !isViewFile(content)) return null;
+        if (!content) return null;
+        if (!isViewFile(content)) return null;
         if (!hasPreview(content)) {
           const result = {
             name: filePath.split("/").pop() || filePath,

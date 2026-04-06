@@ -25,7 +25,14 @@ async function run() {
 
     const results = await Promise.all(
       filesResponse.data.map(async (file) => {
+
+        if (file.status === 'removed') return null
+
         const filePath = file.filename
+
+        if (!filePath.endsWith('View.swift')) return null
+
+        core.info(`Checking file: ${filePath}`)
 
         const content = await getFileContent(
           octokit,
@@ -35,7 +42,9 @@ async function run() {
           ref
         )
 
-        if (!content || !isViewFile(content)) return null
+        if (!content) return null
+
+        if (!isViewFile(content)) return null
 
         if (!hasPreview(content)) {
           const result: FileInfo = {
