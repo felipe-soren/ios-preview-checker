@@ -23635,12 +23635,17 @@ function getOctokit(token, options, ...additionalPlugins) {
   return new GitHubWithPlugins(getOctokitOptions(token, options));
 }
 
-// src/index.ts
+// src/services/previewChecker.ts
 function hasPreview(content) {
   const hasNewPreview = content.includes("#Preview");
   const hasOldPreview = /struct\s+\w+[\s\S]*?:\s*PreviewProvider/.test(content);
   return hasNewPreview || hasOldPreview;
 }
+function isViewFile(content) {
+  content.includes("var body: some View");
+}
+
+// src/utils/markdown.ts
 function buildMarkdownTable(files) {
   if (files.length === 0) {
     return `## \u2705 SwiftUI Preview Checker
@@ -23650,7 +23655,7 @@ All checked files include a valid SwiftUI Preview. Great job! \u{1F389}`;
   let table = `## \u26A0\uFE0F SwiftUI Preview Checker
 
 `;
-  table += `Some SwiftUI files are missing a Preview. Consider adding previews to improve development experience and UI validation.
+  table += `Some SwiftUI files are missing a Preview.
 
 `;
   table += `| File | Path |
@@ -23663,6 +23668,35 @@ All checked files include a valid SwiftUI Preview. Great job! \u{1F389}`;
   }
   return table;
 }
+
+// src/github/pullRequest.ts
+async function getPRFiles(octokit, owner, repo, prNumber) {
+  return await octokit.rest.pulls.listFiles({
+    owner,
+    repo,
+    pull_number: prNumber
+  });
+}
+async function getFileContent(octokit, owner, repo, path, ref) {
+  const fileData = await octokit.rest.repos.getContent({
+    owner,
+    repo,
+    path,
+    ref
+  });
+  if (!("content" in fileData.data)) return null;
+  return Buffer.from(fileData.data.content, "base64").toString("utf-8");
+}
+async function commentOnPR(octokit, owner, repo, prNumber, body) {
+  await octokit.rest.issues.createComment({
+    owner,
+    repo,
+    issue_number: prNumber,
+    body
+  });
+}
+
+// src/index.ts
 async function run() {
   try {
     const token = getInput("github-token");
@@ -23674,37 +23708,26 @@ async function run() {
     }
     const { owner, repo } = context3.repo;
     const prNumber = context3.payload.pull_request.number;
-    const filesResponse = await octokit.rest.pulls.listFiles({
-      owner,
-      repo,
-      pull_number: prNumber
-    });
-    const filesWithoutPreview = [];
-    for (const file of filesResponse.data) {
-      if (!file.filename.endsWith("View.swift")) continue;
-      const fileData = await octokit.rest.repos.getContent({
-        owner,
-        repo,
-        path: file.filename,
-        ref: context3.payload.pull_request.head.sha
-      });
-      if (!("content" in fileData.data)) continue;
-      const content = Buffer.from(fileData.data.content, "base64").toString("utf-8");
-      if (!hasPreview(content)) {
-        const name = file.filename.split("/").pop() || file.filename;
-        filesWithoutPreview.push({
-          name,
-          path: file.filename
-        });
-      }
-    }
+    const ref = context3.payload.pull_request.head.sha;
+    const filesResponse = await getPRFiles(octokit, owner, repo, prNumber);
+    const results = await Promise.all(
+      filesResponse.data.map(async (file) => {
+        const content = await getFileContent(octokit, owner, repo, file.name, ref);
+        if (!content || !isViewFile(content)) return null;
+        if (!hasPreview(content)) {
+          return {
+            name: file.name.split("/").pop() || file.name,
+            path: file.name
+          };
+        }
+        return null;
+      })
+    );
+    const filesWithoutPreview = results.filter(
+      (file) => file !== null
+    );
     const body = buildMarkdownTable(filesWithoutPreview);
-    await octokit.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: prNumber,
-      body
-    });
+    await commentOnPR(octokit, owner, repo, prNumber, body);
     info("Comment posted successfully!");
   } catch (error2) {
     setFailed(`Error: ${error2}`);

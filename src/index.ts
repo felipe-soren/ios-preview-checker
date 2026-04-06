@@ -26,7 +26,7 @@ async function run() {
     const results = await Promise.all(
       filesResponse.data.map(async (file: FileInfo) => {
         const content = await getFileContent(octokit, owner, repo, file.name, ref)
-        if (!content || isViewFile(content))  return null
+        if (!content || !isViewFile(content))  return null
 
         if (!hasPreview(content)) {
           return {
