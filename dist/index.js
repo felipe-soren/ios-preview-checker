@@ -23636,26 +23636,78 @@ function getOctokit(token, options, ...additionalPlugins) {
 }
 
 // src/index.ts
+function hasPreview(content) {
+  const hasNewPreview = content.includes("#Preview");
+  const hasOldPreview = /struct\s+\w+[\s\S]*?:\s*PreviewProvider/.test(content);
+  return hasNewPreview || hasOldPreview;
+}
+function buildMarkdownTable(files) {
+  if (files.length === 0) {
+    return `## \u2705 SwiftUI Preview Checker
+
+All checked files include a valid SwiftUI Preview. Great job! \u{1F389}`;
+  }
+  let table = `## \u26A0\uFE0F SwiftUI Preview Checker
+
+`;
+  table += `Some SwiftUI files are missing a Preview. Consider adding previews to improve development experience and UI validation.
+
+`;
+  table += `| File | Path |
+`;
+  table += `|------|------|
+`;
+  for (const file of files) {
+    table += `| ${file.name} | ${file.path} |
+`;
+  }
+  return table;
+}
 async function run() {
   try {
     const token = getInput("github-token");
     const octokit = getOctokit(token);
     const context3 = context2;
     if (!context3.payload.pull_request) {
-      info("N\xE3o \xE9 um PR");
+      info("Not a pull request");
       return;
     }
     const { owner, repo } = context3.repo;
     const prNumber = context3.payload.pull_request.number;
+    const filesResponse = await octokit.rest.pulls.listFiles({
+      owner,
+      repo,
+      pull_number: prNumber
+    });
+    const filesWithoutPreview = [];
+    for (const file of filesResponse.data) {
+      if (!file.filename.endsWith("View.swift")) continue;
+      const fileData = await octokit.rest.repos.getContent({
+        owner,
+        repo,
+        path: file.filename,
+        ref: context3.payload.pull_request.head.sha
+      });
+      if (!("content" in fileData.data)) continue;
+      const content = Buffer.from(fileData.data.content, "base64").toString("utf-8");
+      if (!hasPreview(content)) {
+        const name = file.filename.split("/").pop() || file.filename;
+        filesWithoutPreview.push({
+          name,
+          path: file.filename
+        });
+      }
+    }
+    const body = buildMarkdownTable(filesWithoutPreview);
     await octokit.rest.issues.createComment({
       owner,
       repo,
       issue_number: prNumber,
-      body: "SwiftUI Preview Check coming soon..."
+      body
     });
-    info("Coment\xE1rio enviado!");
+    info("Comment posted successfully!");
   } catch (error2) {
-    setFailed(`Erro: ${error2}`);
+    setFailed(`Error: ${error2}`);
   }
 }
 run();
