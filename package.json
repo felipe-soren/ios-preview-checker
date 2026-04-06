@@ -1,0 +1,28 @@
+{
+  "name": "ios-preview-checker",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/felipe-soren/ios-preview-checker#readme",
+  "bugs": {
+    "url": "https://github.com/felipe-soren/ios-preview-checker/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felipe-soren/ios-preview-checker.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "@actions/core": "^3.0.0",
+    "@actions/github": "^9.0.0"
+  }
+}

@@ -1,0 +1,11 @@
+name: "SwiftUI Preview Check"
+description: "Ensures SwiftUI views have previews"
+
+inputs:
+  github-token:
+    description: "GitHub token"
+    required: true
+
+runs:
+  using: "node20"
+  main: "dist/index.js"
