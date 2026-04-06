@@ -1,30 +1,10 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 
-function hasPreview(content: string): boolean {
-  const hasNewPreview = content.includes('#Preview')
-  const hasOldPreview = /struct\s+\w+[\s\S]*?:\s*PreviewProvider/.test(content)
-
-  return hasNewPreview || hasOldPreview
-}
-
-function buildMarkdownTable(files: { name: string; path: string }[]) {
-  if (files.length === 0) {
-    return `## ✅ SwiftUI Preview Checker\n\nAll checked files include a valid SwiftUI Preview. Great job! 🎉`
-  }
-
-  let table = `## ⚠️ SwiftUI Preview Checker\n\n`
-  table += `Some SwiftUI files are missing a Preview. Consider adding previews to improve development experience and UI validation.\n\n`
-
-  table += `| File | Path |\n`
-  table += `|------|------|\n`
-
-  for (const file of files) {
-    table += `| ${file.name} | ${file.path} |\n`
-  }
-
-  return table
-}
+import { hasPreview } from './services/previewChecker'
+import { buildMarkdownTable } from './utils/markdown'
+import { getPRFiles, getFileContent, commentOnPR } from './github/pullRequest'
+import { FileInfo } from "./types/file"
 
 async function run() {
   try {
@@ -39,51 +19,36 @@ async function run() {
 
     const { owner, repo } = context.repo
     const prNumber = context.payload.pull_request.number
+    const ref = context.payload.pull_request.head.sha
 
-    // Get changed files from PR
-    const filesResponse = await octokit.rest.pulls.listFiles({
-      owner,
-      repo,
-      pull_number: prNumber,
-    })
+    const filesResponse = await getPRFiles(octokit, owner, repo, prNumber)
 
-    const filesWithoutPreview: { name: string; path: string }[] = []
+    const results = await Promise.all(
+      filesResponse.data.map(async (file: FileInfo) => {
+        if (!file.name.endsWith('View.swift')) return null
 
-    for (const file of filesResponse.data) {
-      if (!file.filename.endsWith('View.swift')) continue
+        const content = await getFileContent(octokit, owner, repo, file.name, ref)
+        if (!content) return null
 
-      // Get file content
-      const fileData = await octokit.rest.repos.getContent({
-        owner,
-        repo,
-        path: file.filename,
-        ref: context.payload.pull_request.head.sha,
+        if (!hasPreview(content)) {
+          return {
+            name: file.name.split('/').pop() || file.name,
+            path: file.name,
+          }
+        }
+
+        return null
       })
+    )
 
-      if (!('content' in fileData.data)) continue
+    // Remove nulls
+    const filesWithoutPreview = results.filter(
+      (file): file is { name: string; path: string } => file !== null
+    )
 
-      const content = Buffer.from(fileData.data.content, 'base64').toString('utf-8')
-
-      if (!hasPreview(content)) {
-        const name = file.filename.split('/').pop() || file.filename
-
-        filesWithoutPreview.push({
-          name,
-          path: file.filename,
-        })
-      }
-    }
-
-    // Build comment
     const body = buildMarkdownTable(filesWithoutPreview)
 
-    // Post comment
-    await octokit.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: prNumber,
-      body,
-    })
+    await commentOnPR(octokit, owner, repo, prNumber, body)
 
     core.info('Comment posted successfully!')
   } catch (error) {
