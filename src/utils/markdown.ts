@@ -1,19 +1,28 @@
 import { FileInfo } from '../types/file'
 
-export function buildMarkdownTable(files: FileInfo[]) {
+export function buildMarkdownTable(
+  files: FileInfo[],
+  owner: string,
+  repo: string,
+  ref: string
+): string {
   if (files.length === 0) {
-    return `## ✅ SwiftUI Preview Checker\n\nAll checked files include a valid SwiftUI Preview. Great job! 🎉`
+    return '✅ All views have previews!'
   }
 
-  let table = `## ⚠️ SwiftUI Preview Checker\n\n`
-  table += `Some SwiftUI files are missing a Preview.\n\n`
+  const rows = files
+    .map((file) => {
+      const url = `https://github.com/${owner}/${repo}/blob/${ref}/${file.path}`
 
-  table += `| File | Path |\n`
-  table += `|------|------|\n`
+      return `| [${file.name}](${url}) | ${file.path} |`
+    })
+    .join('\n')
 
-  for (const file of files) {
-    table += `| ${file.name} | ${file.path} |\n`
-  }
+  return `
+## ⚠️ Views without Preview
 
-  return table
+| File | Path |
+|------|------|
+${rows}
+`
 }

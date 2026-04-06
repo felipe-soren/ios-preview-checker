@@ -23646,27 +23646,21 @@ function isViewFile(content) {
 }
 
 // src/utils/markdown.ts
-function buildMarkdownTable(files) {
+function buildMarkdownTable(files, owner, repo, ref) {
   if (files.length === 0) {
-    return `## \u2705 SwiftUI Preview Checker
-
-All checked files include a valid SwiftUI Preview. Great job! \u{1F389}`;
+    return "\u2705 All views have previews!";
   }
-  let table = `## \u26A0\uFE0F SwiftUI Preview Checker
+  const rows = files.map((file) => {
+    const url = `https://github.com/${owner}/${repo}/blob/${ref}/${file.path}`;
+    return `| [${file.name}](${url}) | ${file.path} |`;
+  }).join("\n");
+  return `
+## \u26A0\uFE0F Views without Preview
 
+| File | Path |
+|------|------|
+${rows}
 `;
-  table += `Some SwiftUI files are missing a Preview.
-
-`;
-  table += `| File | Path |
-`;
-  table += `|------|------|
-`;
-  for (const file of files) {
-    table += `| ${file.name} | ${file.path} |
-`;
-  }
-  return table;
 }
 
 // src/github/pullRequest.ts
