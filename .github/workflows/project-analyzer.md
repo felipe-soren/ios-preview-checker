@@ -4,6 +4,10 @@ description: "Analyzes the repository and generates a project status summary"
 on:
   workflow_dispatch:
 
+engine:
+  id: copilot
+  model: gpt-5
+
 permissions:
   contents: read
   issues: read
