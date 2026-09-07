@@ -9,6 +9,7 @@ permissions:
   issues: read
   pull-requests: read
   actions: read
+  copilot-requests: write
 
 safe-outputs:
   create-issue:
