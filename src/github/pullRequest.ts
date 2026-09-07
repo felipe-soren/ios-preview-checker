@@ -1,6 +1,6 @@
-import * as github from '@actions/github'
+import type { Octokit } from '@octokit/core/types';
 
-export async function getPRFiles(octokit: any, owner: string, repo: string, prNumber: number) {
+export async function getPRFiles(octokit: Octokit, owner: string, repo: string, prNumber: number) {
   return await octokit.rest.pulls.listFiles({
     owner,
     repo,
@@ -9,7 +9,7 @@ export async function getPRFiles(octokit: any, owner: string, repo: string, prNu
 }
 
 export async function getFileContent(
-  octokit: any,
+  octokit: Octokit,
   owner: string,
   repo: string,
   path: string,
@@ -28,7 +28,7 @@ export async function getFileContent(
 }
 
 export async function commentOnPR(
-  octokit: any,
+  octokit: Octokit,
   owner: string,
   repo: string,
   prNumber: number,
